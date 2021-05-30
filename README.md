@@ -1,4 +1,4 @@
-# nuxt-jokes-api
+# nuxt-jokes
 
 ## Build Setup
 
