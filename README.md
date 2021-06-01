@@ -1,4 +1,6 @@
-# nuxt-jokes-api
+# nuxt-jokes
+
+API by https://icanhazdadjoke.com/api
 
 ## Build Setup
 
