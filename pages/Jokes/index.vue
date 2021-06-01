@@ -15,7 +15,7 @@
               <button @click="goPrevJokePage" :disabled="prevJokeBtnDisable === true">PREV</button>
               <button @click="goNextJokePage" :disabled="nextJokeBtnDisable === true">NEXT</button>
           </div>
-          <div class="joke-master_container">
+          <div class="joke-master_container" v-if="pageReady">
               <JokeContainer v-for="(aJoke, aJokeIndex) in jokes" 
               :key="aJoke.id" 
               :joke="aJoke.joke" 
@@ -78,10 +78,13 @@ export default {
             jumpPage: '',
             prevJokeBtnDisable: true,
             nextJokeBtnDisable: false,
-            carousel: true,
+            carousel: false,
             leftSlide: '',
             centerSlide: 0,
-            rightSlide: 1
+            rightSlide: 1,
+            pageReady: false,
+            domJokes: [],
+            topJokeObserver: null
         }
     },
     methods: {
@@ -122,7 +125,7 @@ export default {
                 this.prevJokeBtnDisable = false
                 if(this.curJokePage === this.nextJokePage) {
                     this.nextJokeBtnDisable = true
-                }                
+                }
             } catch (error) {
                 console.log(error)
             }
@@ -162,40 +165,79 @@ export default {
             }
         },
         async jumpToPage() {
-        try {
-            if(this.jumpPage > this.totalJokePages) {
-                return
-            } else {
-                const res = await axios.get('https://icanhazdadjoke.com/search?', axiosConfig('application/json', this.jumpPage, 20, ''))
-                this.jokes = res.data.results
-                this.nextJokePage = res.data.next_page
-                this.curJokePage = res.data.current_page
-                this.prevJokePage = res.data.previous_page
-                this.totalJokePages = res.data.total_pages
-                this.leftSlide = this.jokes.length - 1
-            } 
-        } catch (error) {
-            console.log(error)
-        }
-        }
+            try {
+                if(this.jumpPage > this.totalJokePages) {
+                    return
+                } else {
+                    const res = await axios.get('https://icanhazdadjoke.com/search?', axiosConfig('application/json', this.jumpPage, 20, ''))
+                    this.jokes = res.data.results
+                    this.nextJokePage = res.data.next_page
+                    this.curJokePage = res.data.current_page
+                    this.prevJokePage = res.data.previous_page
+                    this.totalJokePages = res.data.total_pages
+                    this.leftSlide = this.jokes.length - 1
+                } 
+            } catch (error) {
+                console.log(error)
+            }
+        },
     },
-    async created() {
-        try {
-            const res = await axios.get('https://icanhazdadjoke.com/search?', axiosConfig('application/json', 1, 20, ''))
+    updated() {
+        this.$nextTick(() => {
+            this.domJokes = this.$el.querySelectorAll('.joke-master_container > .aJoke-container--link')
+                this.domJokes.forEach(jokee => {
+                    this.topJokeObserver.observe(jokee)
+            })
+        })
+    },
+    mounted() {
+        axios.get('https://icanhazdadjoke.com/search?', axiosConfig('application/json', 1, 20, ''))
+        .then(res => {
             this.jokes = res.data.results
             this.nextJokePage = res.data.next_page
             this.curJokePage = res.data.current_page
             this.prevJokePage = res.data.previous_page
             this.totalJokePages = res.data.total_pages
             this.leftSlide = this.jokes.length - 1
-        } catch (error) {
-            console.log(error)
-        }
-    }
+            this.pageReady = true
+            
+        })
+        .then(() => {
+            this.domJokes = this.$el.querySelectorAll('.joke-master_container > .aJoke-container--link')
+
+            const obstresholds = [];
+            for(let i = 1; i <= 50; i++) {
+                obstresholds.push(i / 50)
+            }
+
+            this.topJokeObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if(!entry.isIntersecting) {
+                        entry.target.style.transform = `scaleX(0.1)`
+                    }
+                    if(entry.isIntersecting) {
+                       if(entry.intersectionRatio < 0.1) {
+                           entry.target.style.transform = `scaleX(0.1)`
+                       } else {
+                           entry.target.style.transform = `scaleX(${entry.intersectionRatio})`
+                       }
+                    }
+                })
+            }, {root: this.window, rootMargin: '0px 0px 0px 0px', threshold: obstresholds})
+
+            this.domJokes.forEach(jokee => {
+                this.topJokeObserver.observe(jokee)
+            })
+        })
+        .catch(err => {
+            console.log('error in created(), while getting to the api' + err)
+        })
+    },
 }
 </script>
 
 <style>
+
 :root {
   --lvl1-green: #F0F7D4;
   --lvl2-green: #6fd732;
@@ -236,6 +278,9 @@ export default {
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+.joke-master_container .aJoke-container--link{
+    transition: transform 200ms ease-in;
 }
 
 .page--jokes .aJoke-container {
@@ -415,7 +460,6 @@ export default {
     padding: 7px;
     cursor: pointer;
 }
-
 
 @media only screen and (max-width: 768px) {
     .page--jokes {

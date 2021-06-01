@@ -9,6 +9,7 @@ function axiosConfig(headerAccept, paramsPage, paramsLimit, paramsTerm) {
             term: paramsTerm
         }
     }
-}
+};
+
 
 export default  axiosConfig 
