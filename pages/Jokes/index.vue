@@ -2,7 +2,9 @@
   <section class="page--jokes">
       <h1>Oh, here's the list of all our DadJokes</h1>
       <h4>Switch to the:</h4>
-      <button class="carousel--toggle" @click="carousel = !carousel"><span v-if="carousel">List</span><span v-if="!carousel">Carousel</span></button>
+      <button class="btn--toggle" @click="carousel = !carousel"><span v-if="carousel">List</span><span v-if="!carousel">Carousel</span></button> |
+      <h4 v-if="carousel === false">Switch to the: </h4>
+      <button class="btn--toggle" v-if="carousel === false" @click="changeAnimation"><span v-if="listAnimation === false">perspective animation</span><span v-if="listAnimation === true">scale animation</span></button>
       
       <template v-if="carousel === false">
           <p>Page: {{ curJokePage }}/{{ totalJokePages }}</p>
@@ -12,8 +14,8 @@
               <button @click="jumpToPage">JUMP</button>
           </div>
           <div class="joke--btn-container">  
-              <button @click="goPrevJokePage" :disabled="prevJokeBtnDisable === true">PREV</button>
-              <button @click="goNextJokePage" :disabled="nextJokeBtnDisable === true">NEXT</button>
+              <button class="topBtn" @click="goPrevJokePage" :disabled="prevJokeBtnDisable === true">PREV</button>
+              <button class="topBtn" @click="goNextJokePage" :disabled="nextJokeBtnDisable === true">NEXT</button>
           </div>
           <div class="joke-master_container" v-if="pageReady">
               <JokeContainer v-for="(aJoke, aJokeIndex) in jokes" 
@@ -25,8 +27,8 @@
               :jokeSlugId="aJoke.id"/>
           </div>
           <div class="joke--btn-container">  
-              <button @click="goPrevJokePage" :disabled="prevJokeBtnDisable === true">PREV</button>
-              <button @click="goNextJokePage" :disabled="nextJokeBtnDisable === true">NEXT</button>
+              <button class="botBtn" @click="goPrevJokePage" :disabled="prevJokeBtnDisable === true">PREV</button>
+              <button class="botBtn" @click="goNextJokePage" :disabled="nextJokeBtnDisable === true">NEXT</button>
           </div>
       </template>
       <template v-if="carousel === true">
@@ -84,11 +86,37 @@ export default {
             rightSlide: 1,
             pageReady: false,
             domJokes: [],
-            topJokeObserver: null
+            domJokesInnerContainers: [],
+            topJokeObserver: null,
+            listAnimation: true,
+            listAnimationStyleCounter: 0,
+            topOrBotBtn: 'topBtn'
         }
     },
     methods: {
-        async goPrevJokePage() {
+        changeAnimation() {
+            this.listAnimation = !this.listAnimation
+            if(this.listAnimation === true) {
+                this.domJokes.forEach((joke, jokeIndex) => {
+                    if (jokeIndex >=4) {
+                        joke.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(35px) scaleX(0.8)`
+                    } else {
+                        joke.childNodes[0].style.transform = `perspective(0px) rotateX(0deg) translateY(0) scaleX(1)`
+                    }
+                })
+            } else {
+                this.domJokes.forEach((joke, jokeIndex) => {
+                    if (jokeIndex >=3) {
+                        joke.childNodes[0].style.transform = `perspective(0px) rotateX(0deg) translateY(0) scaleX(0.1)`
+                    } else {
+                        joke.childNodes[0].style.transform = `perspective(0px) rotateX(0deg) translateY(0) scaleX(1)`
+                    }
+                })
+            }
+        },
+        async goPrevJokePage(e) {
+            this.topOrBotBtn = e.target.classList[0]
+            console.log(this.topOrBotBtn)
             try {
                 const res = await axios.get('https://icanhazdadjoke.com/search?', axiosConfig('application/json', this.prevJokePage, 20, ''))
                 this.jokes = res.data.results
@@ -100,16 +128,21 @@ export default {
                 this.leftSlide = this.jokes.length - 1
                 this.centerSlide = 0
                 this.rightSlide = 1
-
+                
                 this.nextJokeBtnDisable = false
                 if(this.curJokePage === this.prevJokePage) {
                     this.prevJokeBtnDisable = true
                 }
+                
+                this.listAnimationStyleCounter = 0
+
             } catch (error) {
                 console.log(error)
             }
         },
-        async goNextJokePage() {
+        async goNextJokePage(e) {
+            this.topOrBotBtn = e.target.classList[0]
+            console.log(this.topOrBotBtn)
             try {
                 const res = await axios.get('https://icanhazdadjoke.com/search?', axiosConfig('application/json', this.nextJokePage, 20, ''))
                 this.jokes = res.data.results
@@ -126,6 +159,9 @@ export default {
                 if(this.curJokePage === this.nextJokePage) {
                     this.nextJokeBtnDisable = true
                 }
+
+                this.listAnimationStyleCounter = 0
+
             } catch (error) {
                 console.log(error)
             }
@@ -176,7 +212,9 @@ export default {
                     this.prevJokePage = res.data.previous_page
                     this.totalJokePages = res.data.total_pages
                     this.leftSlide = this.jokes.length - 1
-                } 
+                    this.listAnimationStyleCounter = 0
+                    this.topOrBotBtn = 'topBtn'
+                }
             } catch (error) {
                 console.log(error)
             }
@@ -185,12 +223,19 @@ export default {
     updated() {
         this.$nextTick(() => {
             this.domJokes = this.$el.querySelectorAll('.joke-master_container > .aJoke-container--link')
+            console.log('updated dom')
+            // this.domJokes[0].style.transform = `perspective(200px) rotateX(15deg) translateY(-15px) scaleX(0.9)`
                 this.domJokes.forEach(jokee => {
                     this.topJokeObserver.observe(jokee)
             })
         })
     },
     mounted() {
+        function testTop(BotomElPos, conditionIntRatio, testBotPos) {
+            if(BotomElPos > testBotPos) {
+                console.log('this ' + conditionIntRatio + ' ratio failed because the element botom position was' + BotomElPos)
+            }
+        }
         axios.get('https://icanhazdadjoke.com/search?', axiosConfig('application/json', 1, 20, ''))
         .then(res => {
             this.jokes = res.data.results
@@ -212,22 +257,205 @@ export default {
 
             this.topJokeObserver = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
-                    if(!entry.isIntersecting) {
-                        entry.target.style.transform = `scaleX(0.1)`
-                    }
-                    if(entry.isIntersecting) {
-                       if(entry.intersectionRatio < 0.1) {
-                           entry.target.style.transform = `scaleX(0.1)`
-                       } else {
-                           entry.target.style.transform = `scaleX(${entry.intersectionRatio})`
-                       }
+                    if(this.listAnimation === true) {
+                        if(!entry.isIntersecting) {
+                            if(this.topOrBotBtn === 'topBtn') {
+                                if(this.listAnimationStyleCounter <= 16) {
+                                    if (entry.target.offsetHeight > 280) {
+                                        entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(50px) scaleX(0.65)`
+                                    } else {
+                                        entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(35px) scaleX(0.8)`
+                                        console.log('style changed')
+                                        this.listAnimationStyleCounter++
+                                    }
+                                }
+                            } else if(this.topOrBotBtn === 'botBtn') {
+                                    if(this.listAnimationStyleCounter <= 19) {
+                                        if (entry.target.offsetHeight > 280) {
+                                            entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(40deg) translateY(-50px) scaleX(0.65)`
+                                        } else {
+                                            entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(40deg) translateY(-35px) scaleX(0.8)`
+                                            console.log('style changed')
+                                            this.listAnimationStyleCounter++
+                                        }
+                                }
+                            }
+                        }
+                        if(entry.isIntersecting) {
+                            if (entry.target.offsetHeight < 230) {
+                                if(entry.intersectionRatio === 1) {
+                                entry.target.childNodes[0].style.transform = `perspective(0px) rotateX(0deg) translateY(0) scaleX(1)`
+                                } else {
+                                    if(entry.intersectionRect.bottom < 250) {
+                                        if(!entry.isIntersecting) {
+                                            entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(40deg) translateY(-35px) scaleX(0.8)`
+                                        } else {
+                                            if(entry.intersectionRatio >= 0.6612412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(15deg) translateY(-15px) scaleX(0.9)`
+                                                entry.target.nextElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                            } else if(entry.intersectionRatio >= 0.3312412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(30deg) translateY(-25px) scaleX(0.85)`
+                                                entry.target.nextElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                            } else {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(40deg) translateY(-35px) scaleX(0.8)`
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                                // if(entry.target.nextElementSibling) {
+                                                //     entry.target.nextElementSibling.style.transform = 'perspective(200px) rotateX(5deg) translateY(-5px) scaleX(0.97)'
+                                                // }
+                                            }
+
+                                        }
+                                    } else {
+                                        if(!entry.isIntersecting) {
+                                            entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(35px) scaleX(0.8)`
+                                        } else {
+                                            if(entry.intersectionRatio >= 0.6612412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-15deg) translateY(15px) scaleX(0.9)`
+                                                if(entry.target.previousElementSibling) {
+                                                    entry.target.previousElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                }
+                                            } else if(entry.intersectionRatio >= 0.3312412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-30deg) translateY(25px) scaleX(0.85)`
+                                                entry.target.previousElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                            } else {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(35px) scaleX(0.8)`
+                                                // if(entry.target.previousElementSibling) {
+                                                //     entry.target.previousElementSibling.style.transform = 'perspective(200px) rotateX(-5deg) translateY(5px) scaleX(0.97)'
+                                                // }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (entry.target.offsetHeight > 230 && entry.target.offsetHeight <= 280) {
+                                if(entry.intersectionRatio === 1) {
+                                entry.target.childNodes[0].style.transform = `perspective(0px) rotateX(0deg) translateY(0) scaleX(1)`
+                                } else {
+                                    if(entry.intersectionRect.bottom < 320) {
+                                        if(!entry.isIntersecting) {
+                                            entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(40deg) translateY(-35px) scaleX(0.8)`
+                                        } else {
+                                            if(entry.intersectionRatio >= 0.6612412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(15deg) translateY(-15px) scaleX(0.9)`
+                                                entry.target.nextElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                                console.log(entry.intersectionRect.bottom + ' bot pos')
+                                            } else if(entry.intersectionRatio >= 0.3312412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(30deg) translateY(-29px) scaleX(0.80)`
+                                                entry.target.nextElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                                console.log(entry.intersectionRect.bottom + ' bot pos')
+                                            } else {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(40deg) translateY(-39px) scaleX(0.75)`
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                                console.log(entry.intersectionRect.bottom + ' bot pos')
+                                                // if(entry.target.nextElementSibling) {
+                                                //     entry.target.nextElementSibling.style.transform = 'perspective(200px) rotateX(5deg) translateY(-5px) scaleX(0.97)'
+                                                // }
+                                            }
+
+                                        }
+                                    } else {
+                                        if(!entry.isIntersecting) {
+                                            entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(35px) scaleX(0.8)`
+                                        } else {
+                                            if(entry.intersectionRatio >= 0.6612412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-15deg) translateY(15px) scaleX(0.9)`
+                                                if(entry.target.previousElementSibling) {
+                                                    entry.target.previousElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                }
+                                            } else if(entry.intersectionRatio >= 0.3312412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-30deg) translateY(25px) scaleX(0.80)`
+                                                entry.target.previousElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                            } else {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(35px) scaleX(0.8)`
+                                                // if(entry.target.previousElementSibling) {
+                                                //     entry.target.previousElementSibling.style.transform = 'perspective(200px) rotateX(-5deg) translateY(5px) scaleX(0.97)'
+                                                // }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if(entry.target.offsetHeight > 280){
+                                if(entry.intersectionRatio === 1) {
+                                    entry.target.childNodes[0].style.transform = `perspective(0px) rotateX(0deg) translateY(0) scaleX(1)`
+                                } else {
+                                    if(entry.intersectionRect.bottom < 370) {
+                                        if(!entry.isIntersecting) {
+                                            entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(40deg) translateY(-50px) scaleX(0.65)`
+                                        } else {
+                                            if(entry.intersectionRatio >= 0.6612412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(15deg) translateY(-28px) scaleX(0.84)`
+                                                entry.target.nextElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                                console.log(entry.intersectionRect.bottom + ' bot pos')
+                                            } else if(entry.intersectionRatio >= 0.3312412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(30deg) translateY(-45px) scaleX(0.70)`
+                                                entry.target.nextElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                                console.log(entry.intersectionRect.bottom + ' bot pos')
+                                            } else {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(40deg) translateY(-50px) scaleX(0.65)`
+                                                testTop(entry.intersectionRect.bottom, '66', '250')
+                                                console.log(entry.target.offsetHeight)
+                                                console.log(entry.intersectionRect.bottom + ' bot pos')
+                                                // if(entry.target.nextElementSibling) {
+                                                //     entry.target.nextElementSibling.style.transform = 'perspective(200px) rotateX(5deg) translateY(-5px) scaleX(0.97)'
+                                                // }
+                                            }
+
+                                        }
+                                    } else {
+                                        if(!entry.isIntersecting) {
+                                            entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(50px) scaleX(0.65)`
+                                        } else {
+                                            if(entry.intersectionRatio >= 0.6612412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-15deg) translateY(28px) scaleX(0.84)`
+                                                if(entry.target.previousElementSibling) {
+                                                    entry.target.previousElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                                }
+                                            } else if(entry.intersectionRatio >= 0.3312412412412) {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-30deg) translateY(45px) scaleX(0.70)`
+                                                entry.target.previousElementSibling.childNodes[0].style.transform = 'perspective(0px) rotateX(0deg) translateY(0) scaleX(1)'
+                                            } else {
+                                                entry.target.childNodes[0].style.transform = `perspective(200px) rotateX(-40deg) translateY(50px) scaleX(0.65)`
+                                                // if(entry.target.previousElementSibling) {
+                                                //     entry.target.previousElementSibling.style.transform = 'perspective(200px) rotateX(-5deg) translateY(5px) scaleX(0.97)'
+                                                // }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if(this.listAnimation === false) {
+                        if(!entry.isIntersecting) {
+                        entry.target.childNodes[0].style.transform = `scaleX(0.1)`
+                        }
+                        if(entry.isIntersecting) {
+                            if(entry.intersectionRatio < 0.1) {
+                                entry.target.childNodes[0].style.transform = `scaleX(0.1)`
+                        } else {
+                           entry.target.childNodes[0].style.transform = `scaleX(${entry.intersectionRatio})`
+                            }
+                        }
                     }
                 })
-            }, {root: this.window, rootMargin: '0px 0px 0px 0px', threshold: obstresholds})
+            }, {root: this.window, rootMargin: '-50px 0px -50px 0px', threshold: obstresholds})
 
             this.domJokes.forEach(jokee => {
                 this.topJokeObserver.observe(jokee)
             })
+            this.domJokes[0].childNodes[0].style.transform = `perspective(200px) rotateX(15deg) translateY(-15px) scaleX(0.9)`
         })
         .catch(err => {
             console.log('error in created(), while getting to the api' + err)
@@ -259,11 +487,11 @@ export default {
     padding: 70px 10%;
     min-height: 100vh;
 }
-.page--jokes h4, .carousel--toggle {
+.page--jokes h4, .btn--toggle {
     text-align: left;
     display: inline-block;
 }
-.carousel--toggle {
+.btn--toggle {
     border: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.822);
     /* border-radius: 20%; */
@@ -280,7 +508,13 @@ export default {
     align-items: center;
 }
 .joke-master_container .aJoke-container--link{
-    transition: transform 200ms ease-in;
+    transition: transform 200ms ease-in, opacity 200ms ease;
+}
+.joke-master_container .aJoke-container{
+    transition: transform 200ms ease-in, opacity 200ms ease;
+}
+.joke-master_container .aJoke-container--link{
+    transition: transform 200ms ease-in, opacity 200ms ease;
 }
 
 .page--jokes .aJoke-container {
