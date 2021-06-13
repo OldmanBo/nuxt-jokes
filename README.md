@@ -2,6 +2,8 @@
 
 API by https://icanhazdadjoke.com/api
 
+A website that uses an api to display some of the 'best' dad jokes. It is fully responsive and functional with not that much of a nice design :D
+
 ## Build Setup
 
 ```bash
